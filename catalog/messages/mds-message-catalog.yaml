@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: mds-messages
+  description: MDS Message specs
+spec:
+  type: asyncapi
+  lifecycle: experimental
+  owner: team-a
+  definition:
+    $text: https://github.com/rhorv/backstage-demo/blob/main/messages/mds-messages.yaml

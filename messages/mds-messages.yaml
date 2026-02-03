@@ -1,0 +1,164 @@
+asyncapi: 2.6.0
+info:
+  title: Market Data Service Events
+  version: 1.0.0
+  description: Kafka events for Market Data Service
+
+servers:
+  kafka-broker:
+    url: broker:9092
+    protocol: kafka
+
+channels:
+  marketdata.received:
+    subscribe:
+      message:
+        $ref: '#/components/messages/MarketDataRetrieved'
+  marketdatarequest.received:
+    subscribe:
+      message:
+        $ref: '#/components/messages/MarketDataRequestReceived'
+
+components:
+  messages:
+    MarketDataRetrieved:
+      name: MarketDataRetrieved
+      title: Market Data Retrieved Event
+      summary: Event emitted when market data is retrieved for a customer
+      headers:
+        type: object
+        required:
+          - specversion
+          - type
+          - source
+          - id
+          - traceid
+          - time
+          - datacontenttype
+        properties:
+          specversion:
+            type: string
+            enum: ['1.0.2']
+            description: CloudEvents spec version
+          type:
+            type: string
+            description: Event type
+            example: mds.marketdataretrieved.v1
+          source:
+            type: string
+            description: Source of the event
+            example: mds
+          id:
+            type: string
+            description: Unique event ID (RFC 4122 compliant UUID)
+            example: 123e4567-e89b-12d3-a456-426614174000
+          traceid:
+            type: string
+            description: Correlation trace ID (RFC 4122 compliant UUID)
+            example: 987e6543-e21b-12d3-a456-426614174999
+          time:
+            type: string
+            format: date-time
+            description: Event timestamp
+          datacontenttype:
+            type: string
+            description: MIME type of data
+            example: application/json
+      payload:
+        type: object
+        required:
+          - requestDefinition
+          - customer
+          - data
+        properties:
+          requestDefinition:
+            type: string
+            description: The provider Request Definition associated with this event
+            example: rd1
+          customer:
+            type: string
+            description: Customer ID or name
+            example: c1
+          data:
+            type: object
+            additionalProperties:
+              type: string
+            description: Key/value pairs of market data retrieved
+            example:
+              field1: something
+              field2: someotherthing
+    MarketDataRequestReceived:
+      name: RequestReceived
+      title: Market Data Request Received Event
+      summary: Event emitted when a market data request is received and processed
+      headers:
+        type: object
+        required:
+          - specversion
+          - type
+          - source
+          - id
+          - traceid
+          - time
+          - datacontenttype
+        properties:
+          specversion:
+            type: string
+            enum: ['1.0.2']
+            description: CloudEvents spec version
+          type:
+            type: string
+            description: Event type
+            example: mds.marketdatarequestreceived.v1
+          source:
+            type: string
+            description: Source of the event
+            example: mds
+          id:
+            type: string
+            description: Unique event ID (RFC 4122 compliant UUID)
+            example: 123e4567-e89b-12d3-a456-426614174000
+          traceid:
+            type: string
+            description: Correlation trace ID (RFC 4122 compliant UUID)
+            example: 987e6543-e21b-12d3-a456-426614174999
+          time:
+            type: string
+            format: date-time
+            description: Event timestamp
+          datacontenttype:
+            type: string
+            description: MIME type of data
+            example: application/json
+      payload:
+        type: object
+        required:
+          - responseTemplateId
+          - customer
+          - parameters
+          - responseCode
+        properties:
+          responseTemplateId:
+            type: integer
+            description: ID of the Response Template used for this request
+            example: 42
+          customer:
+            type: string
+            description: Customer ID or name making the request
+            example: c1
+          parameters:
+            type: object
+            additionalProperties:
+              type: string
+            description: Key/value pairs of input parameters supplied with the request
+            example:
+              input1: value1
+              input2: value2
+          responseCode:
+            type: integer
+            description: Response Code for the request
+            example: 200
+          message:
+            type: string
+            description: Optional message describing the outcome or error
+            example: "Unauthorized"
