@@ -1,0 +1,694 @@
+openapi: 3.0.3
+info:
+  title: Market Data Service API
+  version: 1.0.0
+  description: |
+    Full API for Market Data Service MVP, including:
+    - Admin APIs (Service Admin & Customer Admin)
+    - Runtime Market Data requests
+servers:
+  - url: https://api.example.com
+
+components:
+  securitySchemes:
+    sessionToken:
+      type: apiKey
+      in: cookie
+      name: sessionToken
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    LoginResponse:
+      type: object
+      required:
+        - username
+        - customer
+        - sessionToken
+        - role
+      properties:
+        username:
+          type: string
+          description: username of the User logged in
+          example: user1
+        customer:
+          type: string
+          description: Name of the Customer (Tenant) this user belongs to
+          example: c1
+        sessionToken:
+          type: string
+          description: Token to authenticate requests on the MDS portal
+          example: whateversessiontoken12345
+        role:
+          type: string
+          description: Role assigned to the logged-in user
+          example: CustomerAdmin (MVP - can only be CustomerAdmin or ServiceAdmin)
+
+    ErrorResponse:
+      type: object
+      required:
+        - errorCode
+        - message
+      properties:
+        errorCode:
+          type: string
+        message:
+          type: string
+
+    CustomerResponse:
+      type: object
+      required:
+        - name
+        - apiKeys
+      properties:
+        name:
+          type: string
+        apiKeys:
+          type: array
+          items:
+            type: object
+            required:
+              - key
+              - expiresAt
+            properties:
+              key:
+                type: string
+              expiresAt:
+                type: string
+                format: date-time
+
+    UserResponse:
+      type: object
+      required:
+        - username
+        - role
+        - customer
+      properties:
+        username:
+          type: string
+        role:
+          type: string
+        customer:
+          type: string
+
+    ProviderConfigRequest:
+      type: object
+      properties:
+        config:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - value
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+
+    ProviderConfigResponse:
+      type: object
+      required:
+        - config
+      properties:
+        config:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - value
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+
+    CreateResponseTemplateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        parameterList:
+          type: array
+          description: >
+            Ordered list of parameters. Duplicate names allowed.
+          items:
+            $ref: '#/components/schemas/ParameterEntry'
+        fieldListMapping:
+          type: object
+          description: >
+            Map of field name to field definition. Field names are unique by design.
+          additionalProperties:
+            $ref: '#/components/schemas/FieldEntry'
+
+    # ------------------------
+    # Parameters
+    # ------------------------
+    ParameterEntry:
+      type: object
+      required:
+        - type
+      oneOf:
+        - $ref: '#/components/schemas/ParameterMapping'
+        - $ref: '#/components/schemas/ParameterValue'
+        - $ref: '#/components/schemas/ParameterReference'
+      discriminator:
+        propertyName: type
+
+    ParameterMapping:
+      type: object
+      required:
+        - type
+        - request_definition
+        - reference_field
+      properties:
+        type:
+          type: string
+          enum: [mapping]
+        request_definition:
+          type: string
+        reference_field:
+          type: string
+
+    ParameterValue:
+      type: object
+      required:
+        - type
+        - value
+      properties:
+        type:
+          type: string
+          enum: [value]
+        value:
+          type: string
+
+    ParameterReference:
+      type: object
+      required:
+        - type
+        - reference_field
+      properties:
+        type:
+          type: string
+          enum: [parameter]
+        reference_field:
+          type: string
+
+    # ------------------------
+    # Fields
+    # ------------------------
+    FieldEntry:
+      type: object
+      required:
+        - type
+      oneOf:
+        - $ref: '#/components/schemas/FieldMapping'
+        - $ref: '#/components/schemas/FieldValue'
+        - $ref: '#/components/schemas/FieldParameter'
+      discriminator:
+        propertyName: type
+
+    FieldMapping:
+      type: object
+      required:
+        - type
+        - request_definition
+        - reference_field
+      properties:
+        type:
+          type: string
+          enum: [mapping]
+        request_definition:
+          type: string
+        reference_field:
+          type: string
+
+    FieldValue:
+      type: object
+      required:
+        - type
+        - value
+      properties:
+        type:
+          type: string
+          enum: [value]
+        value:
+          type: string
+
+    FieldParameter:
+      type: object
+      required:
+        - type
+        - reference_field
+      properties:
+        type:
+          type: string
+          enum: [parameter]
+        reference_field:
+          type: string
+
+    ResponseTemplateResponse:
+      type: object
+      required:
+        - id
+        - name
+        - parameterList
+        - fieldListMapping
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        parameterList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParameterEntry'
+        fieldListMapping:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/FieldEntry'
+        ownerCustomerId:
+          type: string
+
+# -------------------------
+# Authentication
+# -------------------------
+paths:
+  /auth/login:
+    post:
+      summary: User login
+      description: Simple MVP login. Returns a session token to authenticate portal user requests.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # -------------------------
+  # Customer Management
+  # -------------------------
+  /customers:
+    get:
+      summary: List Customers
+      description: Returns all Customers (Service Admin only in MVP)
+      security:
+        - sessionToken: []
+      responses:
+        '200':
+          description: List of Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Customer Management - Add
+      description: Adds a new Customer (Service Admin only)
+      security:
+        - sessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Customer added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '409':
+          description: Customer already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # -------------------------
+  # User Management
+  # -------------------------
+  /users/{customer}:
+    get:
+      summary: List of Users for a Customer
+      description: Returns all users for a given Customer
+      security:
+        - sessionToken: [ ]
+      parameters:
+        - in: path
+          name: customer
+          schema:
+            type: string
+          description: Owning Customer
+      responses:
+        '200':
+          description: List of Users for the given Customer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Add a new User for a Customer
+      description: Adds new User (Service Admin only in MVP)
+      security:
+        - sessionToken: [ ]
+      parameters:
+        - in: path
+          name: customer
+          schema:
+            type: string
+          description: Owning Customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '201':
+          description: User added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # -------------------------
+  # Provider Configuration
+  # -------------------------
+  /customers/{customer}/providers/{providerName}/config:
+    put:
+      summary: Set configuration for a Provider for a given Customer
+      security:
+        - sessionToken: [ ]
+      parameters:
+        - in: path
+          name: providerName
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: customer
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderConfigRequest'
+      responses:
+        '200':
+          description: Provider configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderConfigResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider Unknown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: Get configuration for a Provider for a given Customer
+      security:
+        - sessionToken: [ ]
+      parameters:
+        - in: path
+          name: providerName
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: customer
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provider configuration for customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderConfigResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider Unknown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # -------------------------
+  # Response Templates
+  # -------------------------
+  /customers/{customer}/response-templates:
+    get:
+      summary: List all Response Templates for a Customer
+      security:
+        - sessionToken: [ ]
+      parameters:
+        - in: path
+          name: customer
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of Response Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResponseTemplateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Create a Response Template
+      security:
+        - sessionToken: [ ]
+      parameters:
+        - in: path
+          name: customer
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateResponseTemplateRequest'
+      responses:
+        '201':
+          description: Response Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseTemplateResponse'
+        '400':
+          description: Invalid or incomplete template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Parameter mismatch or duplicate field error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /customers/{customer}/response-templates/{id}:
+    get:
+      summary: Get a Response Template by ID for a Customer
+      security:
+        - sessionToken: [ ]
+      parameters:
+        - in: path
+          name: customer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Response Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseTemplateResponse'
+        '404':
+          description: Response Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # -------------------------
+  # Market Data retrieval
+  # -------------------------
+  /marketdata/{responseTemplateId}:
+    get:
+      summary: Request market data for a given Response Template
+      description: |
+        Returns market data dynamically based on the Response Template configuration.
+      security:
+        - apiKeyAuth: [ ]
+      parameters:
+        - in: path
+          name: responseTemplateId
+          required: true
+          schema:
+            type: integer
+        # Query parameters are dynamic depending on template
+        - in: query
+          name: input1
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Market data retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                example:
+                  field1: data
+        '400':
+          description: Insufficient parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Response Template unknown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Data unavailable (async provider or downstream error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
