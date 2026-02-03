@@ -8,4 +8,4 @@ spec:
   lifecycle: experimental
   owner: team-a
   definition:
-    $text: https://raw.githubusercontent.com/rhorv/backstage-demo/refs/heads/main/api/mds.yaml
+    $text: https://github.com/rhorv/backstage-demo/blob/main/api/mds.yaml
