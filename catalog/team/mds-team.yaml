@@ -5,3 +5,4 @@ metadata:
   description: The team responsible for MDS
 spec:
   type: team
+  children: []
