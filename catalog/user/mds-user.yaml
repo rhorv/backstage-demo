@@ -5,3 +5,5 @@ metadata:
 spec:
   profile:
     email: rhorvath@starfleet.hu
+  memberOf:
+    - team-a
